@@ -10,24 +10,6 @@ interface Conversation {
     updated_at: string,
 }
 
-/**
- * Get a conversation with the default name,
- * or create one if it doesn't exist.
- */
-export const autoGetConversationId = cache(async (org_id: string, req_url: string) => {
-    const sessionKey: string = headers().get('Authorization')?.split(' ')[1]!;
-    const conversations: Conversation[] = await getConversations(org_id, sessionKey);
-    if (0 < conversations.length) {
-        for (const conversation of conversations) {
-            if (process.env.CLAUSE_DEFAULT_CONVERSATION_NAME == conversation.name) {
-                return conversation.uuid;
-            }
-        }
-    }
-    const conversation: Conversation = await createConversation(org_id, sessionKey);
-    return conversation.uuid;
-})
-
 export async function getConversations(org_id: string, sessionKey: string): Promise<Conversation[]> {
     const base_url: string = `${process.env.CLAUDE_BASE}/organizations/${org_id}/chat_conversations`;
     const data = await fetch(base_url, {
@@ -35,7 +17,8 @@ export async function getConversations(org_id: string, sessionKey: string): Prom
         headers: {
             'Accept': 'application/json',
             'Cookie': `sessionKey=${sessionKey}`,
-        }
+        },
+        cache: 'no-cache'
     })
     .then((res: Response) => res.json())
     .catch((err: any) => {
@@ -58,7 +41,7 @@ export async function createConversation(org_id: string, sessionKey: string, opt
         },
         body: JSON.stringify({
             uuid: opts?.uuid || uuidv1() as string,
-            name: opts?.name || process.env.CLAUSE_DEFAULT_CONVERSATION_NAME
+            name: opts?.name || process.env.CLAUDE_DEFAULT_CONVERSATION_NAME
         })
     })
     .then((res: Response) => res.json())
@@ -75,7 +58,8 @@ export async function deleteConversationViaId(org_id: string, conversation_id: s
         headers: {
             'Content-Type': 'application/json',
             'Cookie': `sessionKey=${sessionKey}`,
-        }
+        },
+        cache: 'no-cache'
     })
     .catch((err: any) => {
         throw new Error(`请求错误: ${err.messages}`);
